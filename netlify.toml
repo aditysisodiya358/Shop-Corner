@@ -1,0 +1,4 @@
+# Netlify serves the already-built files in public/. No build command is needed,
+# because shop.js and shop.wasm are created on your computer with build.sh / build.bat.
+[build]
+  publish = "public"

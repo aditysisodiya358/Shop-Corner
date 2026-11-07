@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AVL Shop - product search</title>
+  <meta name="description" content="Online shopping product search built on three AVL trees, written in C++ and compiled to WebAssembly.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,500..900&family=Public+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="top">
+  <div class="brand">
+    <h1>AVL Shop</h1>
+    <p>Product search on three AVL trees, written in C++.</p>
+  </div>
+  <dl class="stats" aria-label="Store statistics">
+    <div><dt>Products</dt><dd id="st-size">0</dd></div>
+    <div><dt>ID tree height</dt><dd id="st-hid">0</dd></div>
+    <div><dt>Name tree height</dt><dd id="st-hname">0</dd></div>
+    <div><dt>Price tree height</dt><dd id="st-hprice">0</dd></div>
+  </dl>
+</header>
+
+<div id="banner" class="banner" role="alert" hidden></div>
+
+<div class="layout">
+  <aside class="rail">
+    <section aria-labelledby="h-find">
+      <h2 id="h-find">Find a product</h2>
+      <div class="modes" role="group" aria-label="Search type">
+        <button type="button" data-mode="prefix" aria-pressed="true">Name starts with</button>
+        <button type="button" data-mode="contains" aria-pressed="false">Name contains</button>
+        <button type="button" data-mode="price" aria-pressed="false">Price range</button>
+        <button type="button" data-mode="id" aria-pressed="false">Product ID</button>
+      </div>
+
+      <form id="find-form" novalidate>
+        <div id="f-text" class="field">
+          <label for="q">Product name</label>
+          <input id="q" type="search" autocomplete="off" placeholder="wire">
+        </div>
+        <div id="f-price" class="field-row" hidden>
+          <div class="field">
+            <label for="pmin">Lowest price (Rs)</label>
+            <input id="pmin" type="number" min="0" step="any" inputmode="decimal" placeholder="0">
+          </div>
+          <div class="field">
+            <label for="pmax">Highest price (Rs)</label>
+            <input id="pmax" type="number" min="0" step="any" inputmode="decimal" placeholder="2500">
+          </div>
+        </div>
+        <div id="f-id" class="field" hidden>
+          <label for="qid">Product ID</label>
+          <input id="qid" type="number" min="1" step="1" inputmode="numeric" placeholder="101">
+        </div>
+        <button type="button" id="clear" class="btn-quiet">Clear search</button>
+      </form>
+      <p id="mode-hint" class="hint"></p>
+    </section>
+
+    <section aria-labelledby="h-add">
+      <h2 id="h-add">Add a product</h2>
+      <form id="add-form" novalidate>
+        <div class="field-row">
+          <div class="field">
+            <label for="a-id">ID</label>
+            <input id="a-id" type="number" min="1" step="1" inputmode="numeric" required>
+          </div>
+          <div class="field">
+            <label for="a-stock">Stock</label>
+            <input id="a-stock" type="number" min="0" step="1" inputmode="numeric" value="10" required>
+          </div>
+        </div>
+        <div class="field">
+          <label for="a-name">Name</label>
+          <input id="a-name" type="text" autocomplete="off" required>
+        </div>
+        <div class="field">
+          <label for="a-price">Price (Rs)</label>
+          <input id="a-price" type="number" min="0" step="any" inputmode="decimal" required>
+        </div>
+        <button type="submit" class="btn-primary">Add product</button>
+      </form>
+    </section>
+
+    <p id="status" class="status" role="status" aria-live="polite"></p>
+  </aside>
+
+  <main class="main">
+    <div class="tabs" role="tablist" aria-label="Views">
+      <button role="tab" id="tab-shelf" aria-controls="panel-shelf" aria-selected="true">Shelf</button>
+      <button role="tab" id="tab-tree" aria-controls="panel-tree" aria-selected="false" tabindex="-1">AVL trees</button>
+      <button role="tab" id="tab-balance" aria-controls="panel-balance" aria-selected="false" tabindex="-1">Balance demo</button>
+    </div>
+
+    <!-- Shelf -->
+    <section id="panel-shelf" role="tabpanel" aria-labelledby="tab-shelf">
+      <div class="toolbar">
+        <p id="summary" class="summary"></p>
+        <div id="sort-box" class="sort">
+          <label for="sort">Sort by</label>
+          <select id="sort">
+            <option value="id">ID</option>
+            <option value="name">Name</option>
+            <option value="price">Price</option>
+          </select>
+          <button type="button" id="dir" aria-label="Order: ascending. Click to reverse.">Low to high</button>
+        </div>
+      </div>
+      <div id="empty" class="empty" hidden></div>
+      <ul id="shelf" class="shelf"></ul>
+    </section>
+
+    <!-- Tree -->
+    <section id="panel-tree" role="tabpanel" aria-labelledby="tab-tree" hidden>
+      <div class="toolbar">
+        <p class="summary" id="tree-summary"></p>
+        <div class="sort">
+          <label for="tree-pick">Show tree</label>
+          <select id="tree-pick">
+            <option value="id">by ID</option>
+            <option value="name">by name</option>
+            <option value="price">by price</option>
+          </select>
+        </div>
+      </div>
+      <div class="tree-wrap"><div id="tree" class="tree"></div></div>
+      <ul class="legend">
+        <li><span class="swatch hit"></span>In your current search results</li>
+        <li>Under each node: balance factor, the height of the left side minus the right side. AVL keeps it between -1 and 1.</li>
+        <li>Only the top 6 levels are drawn.</li>
+      </ul>
+    </section>
+
+    <!-- Balance demo -->
+    <section id="panel-balance" role="tabpanel" aria-labelledby="tab-balance" hidden>
+      <p class="lead">Insert products with IDs 1, 2, 3, ... in sorted order. A plain BST turns into a linked list. An AVL tree rebalances itself.</p>
+      <form id="balance-form" class="balance-form">
+        <div class="field">
+          <label for="bal-n">Number of products (1 to 100000)</label>
+          <input id="bal-n" type="number" min="1" max="100000" step="1" value="1000" inputmode="numeric">
+        </div>
+        <button type="submit" class="btn-primary">Run demo</button>
+        <div class="presets" role="group" aria-label="Quick sizes">
+          <button type="button" data-n="100">100</button>
+          <button type="button" data-n="10000">10,000</button>
+          <button type="button" data-n="100000">100,000</button>
+        </div>
+      </form>
+      <div id="balance-out" class="balance-out"></div>
+    </section>
+  </main>
+</div>
+
+<script src="shop.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
